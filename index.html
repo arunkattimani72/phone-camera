@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Camera</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #111;
+      color: white;
+      padding: 20px;
+    }
+
+    video {
+      width: 100%;
+      max-width: 600px;
+      background: black;
+      border-radius: 12px;
+    }
+
+    button {
+      padding: 14px 22px;
+      margin: 8px;
+      font-size: 16px;
+      border: 0;
+      border-radius: 8px;
+    }
+
+    #status {
+      margin: 15px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>📱 My Camera</h2>
+
+<div id="status">Starting...</div>
+
+<video id="video" autoplay playsinline muted></video>
+
+<script>
+const params = new URLSearchParams(location.search);
+const cameraCode = params.get("camera");
+const viewCode = params.get("view");
+
+const video = document.getElementById("video");
+const status = document.getElementById("status");
+
+if (cameraCode) {
+  startCamera(cameraCode);
+} else if (viewCode) {
+  startViewer(viewCode);
+} else {
+  status.innerText = "No camera session selected.";
+}
+
+async function startCamera(code) {
+  status.innerText = "Requesting camera permission...";
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false
+    });
+
+    video.srcObject = stream;
+    status.innerText = "🟢 Camera is ON";
+
+    const peer = new Peer("cam-" + code);
+
+    peer.on("open", function() {
+      status.innerText = "🟢 Camera ready";
+    });
+
+    peer.on("call", function(call) {
+      call.answer(stream);
+    });
+
+    peer.on("error", function(err) {
+      status.innerText = "Connection error";
+      console.log(err);
+    });
+
+  } catch (error) {
+    status.innerText = "❌ Camera permission denied";
+    console.log(error);
+  }
+}
+
+function startViewer(code) {
+  status.innerText = "Connecting to camera...";
+
+  const peer = new Peer();
+
+  peer.on("open", function() {
+
+    navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: false
+    }).catch(() => {});
+
+    const call = peer.call("cam-" + code, new MediaStream());
+
+    call.on("stream", function(remoteStream) {
+      video.srcObject = remoteStream;
+      video.muted = false;
+      status.innerText = "🟢 Live camera connected";
+    });
+
+    call.on("error", function() {
+      status.innerText = "❌ Could not connect";
+    });
+
+  });
+}
+</script>
+
+</body>
+</html>
